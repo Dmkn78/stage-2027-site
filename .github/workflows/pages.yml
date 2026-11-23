@@ -20,14 +20,17 @@ jobs:
       - name: Verify public build boundary
         run: |
           python3 - <<'PY'
-          import base64, json, re
+          import base64, hashlib, json, re
           from pathlib import Path
           root = Path("site")
           files = {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()}
           assert not any(p.is_symlink() for p in root.rglob("*"))
-          assets = files - {"index.html", "catalogue.enc.json"}
+          fonts = {"fonts/fraunces-latin.woff2":"7f9d191d999336d3b9790afa72e1358e50a13b06d4f289341e92a311967a80f9","fonts/inter-latin.woff2":"3100e775e8616cd2611beecfa23a4263d7037586789b43f035236a2e6fbd4c62","fonts/ofl-fraunces.txt":"720d772b526b33cc1bd2abb5c8735fea5b0fc5b742cb171b571d7ad62aae0496","fonts/ofl-inter.txt":"3c8d13d97ea5eb62868833a377034c6be6a9833e768d32abec2a767a8101e4bc"}
+          for path, sha256 in fonts.items():
+              assert hashlib.sha256((root/path).read_bytes()).hexdigest() == sha256
+          assets = files - {"index.html", "catalogue.enc.json"} - set(fonts)
           assert len(assets) == 2 and {Path(p).suffix for p in assets} == {".css", ".js"}
-          assert files == assets | {"index.html", "catalogue.enc.json"}
+          assert files == assets | {"index.html", "catalogue.enc.json"} | set(fonts)
           assert all(re.fullmatch(r"assets/index-[\w-]+\.(?:css|js)", p) for p in assets)
           assert all("./"+p in (root/"index.html").read_text() for p in assets)
           d = json.loads((root/"catalogue.enc.json").read_bytes())
